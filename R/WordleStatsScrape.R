@@ -26,10 +26,12 @@ wordleTweetStats <- rtweet::get_timeline(
   user = c('WordleStats'), 
   n = 100, 
   parse = T, 
-  token = TwitterAuthToken
+  token = TwitterAuthToken, 
+  q = c('-is:reply') # remove tweet replies from the api request 
 )
 
 CleanWordleStats <- wordleTweetStats %>%
+  filter(str_detect(text, '#Wordle [:digit:]')) %>% 
   select(text) %>%
   plain_tweets() %>%
   separate(
