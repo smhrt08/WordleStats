@@ -102,8 +102,9 @@ hx_wordleStats <- list.files(pattern = '*.WordleStats.csv') %>%
 #' 
 
 # Start by getting all 5-letter word possibilities (not filtered by wordle-only words) 
-validSolutionsDf <- fread('valid_solutions.csv') %>% clean_names()
-validGuessesDf <- fread('valid_guesses.csv') %>% clean_names()
+validSolutionsDf <- fread('valid_solutions.csv') %>% clean_names() %>% mutate(type = 'valid_sol')
+validGuessesDf <- fread('valid_guesses.csv') %>% clean_names() %>% mutate(type = 'valid_guess')
+valid_dt <- bind_rows(validSolutionsDf, validGuessesDf)
 
 
 wordOfTheDay <- 'grimy'
@@ -111,7 +112,7 @@ wordOfTheDay <- 'grimy'
 # uniqueness -- how many 5-letter words have the same letter placement
 
 # all substring combinations from the solutions 
-uniquenessRaw <- validSolutionsDf %>% 
+uniquenessRaw <- valid_dt %>% 
   mutate(
     g1 = substr(word, 1, 1), 
     g2 = substr(word, 2, 2), 
@@ -139,7 +140,8 @@ uniquenessRaw <- validSolutionsDf %>%
     g245 = paste0(substr(word, 2, 2), substr(word, 4, 5)), 
     g345 = substr(word, 3, 5),
     g1234 = substr(word, 1, 4),
-    g1235 = paste0(substr(word, 1, 2), substr(word, 3, 5)), 
+    g1235 = paste0(substr(word, 1, 3), substr(word, 5, 5)), 
+    g1245 = paste0(substr(word, 1, 2), substr(word, 4, 5)),
     g1345 = paste0(substr(word, 1, 1), substr(word, 3, 5)), 
     g2345 = substr(word, 2, 5)
   ) 
@@ -222,7 +224,7 @@ corMatrix <- hx_wordleStats %>%
 
 ggplot(corMatrix, aes(x = xFIP, y = weighted_daily_avg)) + geom_point()
 round(cor(corMatrix[,c(3:9, 17)], corMatrix[,c(80:87)]), 3)
-  # cor(OffSummary$PF, OffSummary[c(4:63)])
+# cor(OffSummary$PF, OffSummary[c(4:63)])
 
 # /familiarity -- how common does the word occur in regular speech
 # downloaded the commonality of 5-letter words based on wikipedia articles from this site: https://en.lexipedia.org/
@@ -255,7 +257,7 @@ familiarityScaled <- function(wavg) {
 familiarityDf$familiarityScore <- familiarityScaled(familiarityDf$wavg)
 
 familiarityDf %>% arrange(desc(familiarityScore))
-  
+
 
 
 # /singularity -- how many words have repeated letters 
@@ -276,7 +278,7 @@ wordleScrapeRaw <-
   html_text2() 
 
 # extract wordle answers and clean it up to have just the wordle number, answer, and date
-wordleScrapeData <- sub("^([^-]*-[^-]*).*", "\\1", wordleScrapeRaw[9:578])
+wordleScrapeData <- sub("^([^-]*-[^-]*).*", "\\1", wordleScrapeRaw[9:689])
 
 # wordleScrapeData
 
@@ -302,13 +304,13 @@ wordleDateVector <-
 # tidy the date, wordle number, and solution into a single df 
 wordleAnswersByDateTidy <-
   tibble(wordle_nbr = as.numeric(wordleNumberVector),
-             date = wordleDateVector,
-             answer = wordleAnswersVector) %>% 
+         date = wordleDateVector,
+         answer = wordleAnswersVector) %>% 
   mutate(date = as_date(dmy(date))) %>% 
-  add_row(wordle_nbr = 541, date = ymd('2022-12-12'), answer = 'APPLY') %>% 
+  # add_row(wordle_nbr = 541, date = ymd('2022-12-12'), answer = 'APPLY') %>% 
   arrange(desc(wordle_nbr))
 
-wordleAnswersByDateTidy %>% filter(date == '2022-12-12')
+wordleAnswersByDateTidy %>% tail()
 
 
 
@@ -320,11 +322,21 @@ wordleAnswersMatrix <-
   arrange(desc(date))
 
 
-hx_wordleStats %>%
-  summarise(mean(weighted_daily_avg))
-  left_join(wordleAnswersMatrix, by = c('wordle_date' = 'date')) %>%
-  filter(month(wordle_date) == 12) %>%
-  arrange(desc(wordle_date))
+### wordle solver ### 
+
+wordle_solver_dt <- uniquenessRaw %>% 
+  left_join(valid_dt, by = c('word', 'type')) %>% 
+  mutate(word = toupper(word)) %>%
+  left_join(wordleAnswersByDateTidy, by = c('word' = 'answer'))
+
+wordle_solver_dt %>%
+  # filter(g13 == 'sl') %>% 
+  filter(str_detect(g124, 'sil|sol|sul')) %>%
+  filter(!str_detect(word, 'A|E|T|O')) %>% 
+  arrange(g5)
+  
+  filter(g1235 %in% c('sily', 'soly', 'suly')) %>% 
+  filter(g1245 %in% c('sily', 'soly', 'suly'))
 
 
 
