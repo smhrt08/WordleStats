@@ -1,5 +1,9 @@
 ##### WORDLE SOLUTIONS TO DATE ##### 
 
+setwd("/Users/sdhart/Downloads")
+
+pacman::p_load(tidyverse, data.table, rvest, janitor)
+
 # url for wordle answers 
 wordleAnswersUrl <- 'https://www.stadafa.com/2021/09/every-wordle-world-so-far-excluding.html'
 
@@ -156,6 +160,9 @@ wordGuessFunction <- function(guess, yellows = NULL, greens = NULL, greys = NULL
   
   # test guess 
   # guess <- 'arise'
+
+  # convert to uppercase 
+  guess <- toupper(guess) 
   
   # test
   # greens <- NULL
