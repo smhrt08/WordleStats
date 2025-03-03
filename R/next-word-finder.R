@@ -54,8 +54,8 @@ wordleAnswersByDateTidy <- tibble(
 ##### WORDLE DICTIONARY ##### 
 
 # Start by getting all 5-letter word possibilities (not filtered by wordle-only words) 
-validSolutionsDf <- fread('valid_solutions.csv') %>% clean_names() %>% mutate(type = 'valid_sol')
-validGuessesDf <- fread('valid_guesses.csv') %>% clean_names() %>% mutate(type = 'valid_guess')
+validSolutionsDf <- fread('valid_solutions.csv', header = T) %>% clean_names() %>% mutate(type = 'valid_sol')
+validGuessesDf <- fread('valid_guesses.csv', header = T) %>% clean_names() %>% mutate(type = 'valid_guess')
 valid_dt <- bind_rows(validSolutionsDf, validGuessesDf)
 
 uniquenessRaw <- valid_dt %>% 
@@ -109,6 +109,15 @@ wordListTable <- uniquenessRaw %>%
 
 wordListStr <- wordListTable %>% pull(word)
 
+count_vowels <- function(word) {
+  str_count(word, "[aeiouyAEIOUY]")
+}
+
+lowVowelWordListStr <- wordListTable %>%
+  mutate(vowel_count = count_vowels(word)) %>%
+  filter(vowel_count == 1) %>%
+  pull(word)
+
 ##### END WORDLE DICTIONARY ##### 
 
 
@@ -147,6 +156,35 @@ findBestWord <- function(wordListStr) {
   return(list(word = bestWord, score = bestScore))
 }
 
+findBestWord <- function(wordListStr, top_n = 5) {
+  wordScores <- data.frame(word = character(), score = numeric(), stringsAsFactors = FALSE)
+  
+  for (i in seq_along(wordListStr)) {
+    word <- wordListStr[i]
+    totalScore <- 0
+    
+    for (j in seq_along(wordListStr)) {
+      if (i != j) {
+        target <- wordListStr[j]
+        commonLetters <- intersect(strsplit(word, '')[[1]], strsplit(target, '')[[1]])
+        totalScore <- totalScore + length(commonLetters)
+      }
+    }
+    
+    # Store the word and its score
+    wordScores <- rbind(wordScores, data.frame(word = word, score = totalScore, stringsAsFactors = FALSE))
+  }
+  
+  # Sort by score in descending order and get the top N results
+  topWords <- wordScores %>% arrange(desc(score)) %>% head(top_n)
+  
+  return(topWords)
+}
+
+# Find the top 5 starting words
+# topWords <- findBestWord(wordListStr, top_n = 5)
+# topConsonantWords <- findBestWord(lowVowelWordListStr, top_n = 5)
+
 # Find the best starting word
 # bestWord <- findBestWord(wordListStr)
 
@@ -160,13 +198,13 @@ wordGuessFunction <- function(guess, yellows = NULL, greens = NULL, greys = NULL
   
   # test guess 
   # guess <- 'arise'
-
+  
   # convert to uppercase 
   guess <- toupper(guess) 
   
   # test
   # greens <- NULL
-  # greens <- c(2)
+  # greens <- c(5)
   # greens <- c(2, 3)
   
   # Initialize empty variables for greens
@@ -208,7 +246,7 @@ wordGuessFunction <- function(guess, yellows = NULL, greens = NULL, greys = NULL
   
   
   # test greys 
-  # greys <- 'rie'
+  # greys <- 'aris'
   # greys <- NULL
   
   # Handle greys input
@@ -247,8 +285,9 @@ wordGuessFunction <- function(guess, yellows = NULL, greens = NULL, greys = NULL
 }
 
 
-wordGuessFunction('arise', yellows = c(1,4), greens = NULL, greys = 'rie')
+wordGuessFunction('crash', yellows = c(2,3,4), greens = NULL, greys = 'ch')
 
 
 
-
+wordListTable %>% 
+  filter(g5 == 'E' & !str_detect(word, 'A|R|I|S'))
